@@ -126,6 +126,8 @@ static int8_t CDC_DeInit_FS(void);
 static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length);
 static int8_t CDC_Receive_FS(uint8_t* pbuf, uint32_t *Len);
 
+void BoardUsb_OnRx(const uint8_t* data, uint16_t len);
+
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_DECLARATION */
 
 /* USER CODE END PRIVATE_FUNCTIONS_DECLARATION */
@@ -258,6 +260,8 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
   */
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
+  BoardUsb_OnRx(Buf, *Len);
+
   /* USER CODE BEGIN 6 */
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);

@@ -11,15 +11,15 @@ Firmware for an **STM32-based USB** adapter. The adapter bridges **USB (CDC)** c
     sudo dpkg -i stlink_1.8.0-1_amd64.deb
     ```
 - Check everything is installed correctly by running:
-	```bash
-	arm-none-eabi-gcc --version
+    ```bash
+    arm-none-eabi-gcc --version
     arm-none-eabi-g++ --version
-	st-info --version
+    st-info --version
     st-flash --version
-	```
+    ```
 
 # Build
-### Basic
+## Basic
 - To build the firmware (```.elf```, ```.bin```, and ```.hex``` files), run:
 	```bash
 	make
@@ -36,8 +36,8 @@ This will build the project using the **default** settings:
 
 The output files will be placed in the ```build/``` directory.
 
-### Selective
-#### 1. Mode
+## Selective
+### 1. Mode
 - ```DEBUG``` – debug symbols enabled, no optimizations
 - ```RELEASE``` – no debug symbols, optimized build
 
@@ -46,7 +46,7 @@ The output files will be placed in the ```build/``` directory.
     make flash MODE=DEBUG
     ```
 
-#### 2. Optimization Level
+### 2. Optimization Level
 - ```0```, ```1```, ```2```, ```3``` – standard **GCC** optimization levels
 - ```s``` – optimize for size (```-Os```)
     
@@ -55,10 +55,15 @@ The output files will be placed in the ```build/``` directory.
     make flash OPT=s
     ```
 
-#### 3. Target Device
+### 3. Target Device
 If multiple devices are present under the ```devices/``` directory, it is possible to select which one to build for:
 
 ```bash
 make DEVICE=stm32f303vct6
 make flash DEVICE=stm32f303vct6
+```
+
+## Clean
+```bash
+make clean
 ```
