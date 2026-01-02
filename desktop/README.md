@@ -37,13 +37,13 @@ sudo apt-get install build-essential cmake
 
 ## 1. Using Qt Creator
 1. Open the project folder in **Qt Creator**
-```bash
-~/Qt/Tools/QtCreator/bin/qtcreator <project-dir>/universal-protocol-bridge/desktop
-```
-To run QT on Wayland do not forge to axport additional value:
-```bash
-export QT_QPA_PLATFORM=wayland 
-```
+    ```bash
+    ~/Qt/Tools/QtCreator/bin/qtcreator <project-dir>/universal-protocol-bridge/desktop
+    ```
+    To run QT on **Wayland** export additional env variable:
+    ```bash
+    export QT_QPA_PLATFORM=wayland 
+    ```
 2. Qt Creator may suggest to install Qt6SerialPort or other missing packages. Accept it.
 3. Open `CMakeLists.txt`.
 4. Select your **Qt Kit** (Desktop Qt 6.x GCC).
