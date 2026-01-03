@@ -1,5 +1,5 @@
 
-# UBP UI
+# UPB UI
 A **Qt6-based desktop application** using Widgets and SerialPort modules. It supports building and running both via **Qt Creator** and from the **console** with CMake.
 
 ---
