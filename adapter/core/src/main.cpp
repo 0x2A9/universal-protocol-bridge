@@ -1,15 +1,16 @@
 #include "device.hpp"
 
-int main(void) { 
-  BoardLedController leds;
-  BoardUsb usb;
-  Device dev(leds, usb);
+LedController leds;
+Usb usb;
+Uart uart;
+Device dev(leds, usb, uart);
 
+int main(void) { 
   dev.Init();
 
   while (true) {
     dev.Run();
-    dev.DelayMs(500);
+    dev.DelayMs(100);
   }
 
   return 0;

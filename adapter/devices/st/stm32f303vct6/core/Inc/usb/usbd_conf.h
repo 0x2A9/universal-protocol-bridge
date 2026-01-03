@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "system_init.h"
+#include "board.h"
 #include "stm32f3xx.h"
 #include "stm32f3xx_hal.h"
 
