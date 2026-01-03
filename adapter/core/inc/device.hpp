@@ -2,7 +2,7 @@
 #define ADAPTER_CORE_INC_DEVICE_HPP
 
 #include <stdint.h>
-#include <stdbool.h>
+#include "queue.hpp"
 
 #ifdef __cplusplus
 extern "C" {
@@ -10,59 +10,71 @@ extern "C" {
 
 class LedController {
  public:
-  virtual void ToggleInfo() = 0;
-  virtual ~LedController() = default;
+  void ToggleInfo(void);
+  void SetWarn(void);
+  void ResetWarn(void);
 };
 
 class Usb {
  public:
-  virtual bool IsReady(void) const = 0;
-  virtual uint8_t Transmit(uint8_t* buf, uint16_t len) = 0;
+  explicit Usb(void);
+  static Usb *TryInstance(void);
 
-  virtual ~Usb() = default;
-};
+  bool Init(void);
+  bool IsReady(void) const;
 
-class BoardLedController : public LedController {
- public:
-  void ToggleInfo(void) override;
-};
-
-class BoardUsb : public Usb {
- public:
-  explicit BoardUsb();
-
-  static BoardUsb* TryInstance();
-
-  bool IsReady(void) const override;
-  uint8_t Transmit(uint8_t *buf, uint16_t len) override;
-
-  uint16_t ItemCount() const;
-  uint16_t PopRx(uint8_t* dst, uint32_t len);
-  void PushRx(const uint8_t* data, uint32_t len);
+  bool EnqueueTx(const uint8_t *src, uint16_t len);
+  void ProcessTx(void);
+  bool EnqueueRx(const uint8_t *src, uint16_t len);
+  uint16_t DequeueRx(uint8_t *dst, uint16_t len);
 
  private:
-  /* Should be the power of two */
-  static constexpr uint16_t kBufSize = 512;
-  static constexpr uint16_t kBufMask = kBufSize - 1;
-  static inline BoardUsb* instance_  = nullptr;
+  static inline Usb *instance_ = nullptr;
 
-  volatile uint16_t head_ = 0;
-  volatile uint16_t tail_ = 0;
-  uint8_t buf_[kBufSize] {};
+  Queue rx_buf_;
+  Queue tx_buf_;
+};
+
+class Uart {
+ public:
+  explicit Uart(void);
+  static Uart *TryInstance(void);
+
+  bool Init(void);
+  void StartRx(void);
+
+  uint8_t Transmit(uint8_t *src, uint16_t len);
+  bool CopyRx(void);
+  bool EnqueueRx(const uint8_t *src, uint16_t len);
+  uint16_t DequeueRx(uint8_t *dst, uint16_t len);
+
+  bool IsNewRxData(void);
+  void ClearNewRxDataFlag(void);
+
+ private:
+  static constexpr uint16_t kRxTmpBufSize = 8;
+  static inline Uart *instance_  = nullptr;
+
+  bool is_new_rx_data_ = false;
+
+  /* UART Rx ISR triggered as soon as it is filled */
+  uint8_t rx_tmp_[kRxTmpBufSize];
+  Queue rx_buf_;
 };
 
 class Device {
  public:
-  explicit Device(BoardLedController &lc, BoardUsb &usb)
-      : leds_(lc), usb_(usb) {}
+  explicit Device(LedController &lc, Usb &usb, Uart &uart)
+      : leds_(lc), usb_(usb), uart_(uart) {}
 
-  static void Init(void);
+  void Init(void);
   void Run(void);
   static void DelayMs(uint32_t ms);
 
  private:
-  BoardLedController &leds_;
-  BoardUsb &usb_;
+  LedController &leds_;
+  Usb &usb_;
+  Uart &uart_;
 };
 
 #ifdef __cplusplus

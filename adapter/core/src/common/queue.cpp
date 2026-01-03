@@ -1,0 +1,55 @@
+#include "queue.hpp"
+
+uint16_t Queue::Count(void) const {
+  if (head_ == tail_) {
+    return full_ ? kSize : 0;
+  }
+  return (head_ - tail_) & kMask;
+}
+
+uint16_t Queue::Free(void) const {
+  return kSize - Count();
+}
+
+uint16_t Queue::Pop(uint8_t *dst, const uint16_t len) {
+  uint16_t n = Count();
+  if (n > len) n = len;
+
+  for (uint16_t i = 0; i < n; i++) {
+    dst[i] = buf_[tail_];
+    tail_ = (tail_ + 1) & kMask;
+    full_ = false;
+  }
+  return n;
+}
+
+void Queue::Push(const uint8_t *src, const uint16_t len) {
+  for (uint16_t i = 0; i < len; i++) {
+    if (full_) break; 
+
+    buf_[head_] = src[i];
+    head_ = (head_ + 1) & kMask;
+
+    if (head_ == tail_) full_ = true;
+  }
+}
+
+uint16_t Queue::Peek(uint8_t *dst, const uint16_t len) const {
+  uint16_t n = Count();
+  if (n > len) n = len;
+
+  uint16_t t = tail_;
+  for (uint16_t i = 0; i < n; i++) {
+    dst[i] = buf_[t];
+    t = (t + 1) & kMask;
+  }
+  return n;
+}
+
+void Queue::Drop(const uint16_t len) {
+  uint16_t n = Count();
+  if (n > len) n = len;
+
+  tail_ = (tail_ + n) & kMask;
+  full_ = false;
+}

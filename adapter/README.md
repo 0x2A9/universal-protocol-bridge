@@ -6,6 +6,7 @@ Firmware for an **STM32-based USB** adapter. The adapter bridges **USB (CDC)** c
     ```bash
     sudo apt install gcc-arm-none-eabi gdb-arm-none-eabi
     ```
+- In case ```apt``` contains an old version, use an official [web page](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads). Search for the ```x86_64 Linux hosted cross toolchains``` and ```AArch32 bare-metal target (arm-none-eabi)```
 - Download ```.deb``` ```1.8.0``` release of the `stlink` [repository](https://github.com/stlink-org/stlink/releases) and install:
     ```bash
     sudo dpkg -i stlink_1.8.0-1_amd64.deb

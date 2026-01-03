@@ -50,10 +50,12 @@ endif
 DEVICE_DIR := $(firstword $(DEVICE_DIR_CANDIDATES))
 
 # ---- Includes ----
-INCS := -Icore/inc
+INCS := -Icore/inc \
+        -Icore/inc/common
 
 # ---- Sources ----
-SRCS := core/src/main.cpp
+SRCS := core/src/main.cpp \
+        core/src/common/queue.cpp
 
 # ---- Configure params based on choosen device ----
 ifeq ($(DEVICE),stm32f303vct6)
@@ -72,8 +74,9 @@ ifeq ($(DEVICE),stm32f303vct6)
           -I$(DEVICE_DIR)/middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc \
           -I$(DEVICE_DIR)/middlewares/ST/STM32_USB_Device_Library/Core/Inc
 
-  SRCS +=   $(DEVICE_DIR)/core/Src/system_init.c \
+  SRCS +=   $(DEVICE_DIR)/core/Src/board.c \
             $(DEVICE_DIR)/core/Src/device_stm32f3xx.cpp \
+            $(DEVICE_DIR)/core/Src/hal_callbacks.cpp \
             $(DEVICE_DIR)/core/Src/stm32f3xx_hal_msp.c \
             $(DEVICE_DIR)/core/Src/stm32f3xx_it.c \
             $(DEVICE_DIR)/core/Src/syscalls.c \
@@ -90,6 +93,9 @@ ifeq ($(DEVICE),stm32f303vct6)
             $(DEVICE_DIR)/hal/Src/stm32f3xx_hal_pcd_ex.c \
             $(DEVICE_DIR)/hal/Src/stm32f3xx_hal_pcd.c \
             $(DEVICE_DIR)/hal/Src/stm32f3xx_ll_usb.c \
+            $(DEVICE_DIR)/hal/Src/stm32f3xx_hal_dma.c \
+            $(DEVICE_DIR)/hal/Src/stm32f3xx_hal_uart_ex.c \
+            $(DEVICE_DIR)/hal/Src/stm32f3xx_hal_uart.c \
             $(DEVICE_DIR)/cmsis/Device/ST/STM32F3xx/Source/system_stm32f3xx.c \
             $(DEVICE_DIR)/middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/usbd_cdc.c \
             $(DEVICE_DIR)/middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c \
