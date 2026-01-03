@@ -7,8 +7,11 @@ extern "C" {
 
 #include "stm32f3xx_hal.h"
 
+extern UART_HandleTypeDef huart2;
+
 void SystemClock_Config(void);
 void MX_GPIO_Init(void);
+void MX_USART2_UART_Init(void);
 
 void Error_Handler(void);
 

@@ -4,6 +4,11 @@
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
 
+uint8_t tx_buff[]="USBm\n";
+uint8_t rx_buff[5];
+uint8_t rx_data[5];
+static volatile bool uart_rx_ready = false;
+
 void BoardLedController::ToggleInfo(void) {
   HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_8);
 }
@@ -73,19 +78,37 @@ void Device::Init(void) {
   SystemClock_Config();
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
+
+  MX_USART2_UART_Init();
+  HAL_UART_Receive_IT(&huart2, rx_buff, 5);
 }
 
 void Device::Run(void) {
   if (!usb_.IsReady()) return;
 
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
+  HAL_Delay(500);
+  HAL_UART_Transmit(&huart2, tx_buff, 5, 10);
+
   /* Simple USB test */
   leds_.ToggleInfo();
+
+  if (uart_rx_ready) {
+    uart_rx_ready = false; 
+    uint8_t rr = usb_.Transmit((uint8_t*)rx_data, (uint16_t)sizeof(rx_data));
+    while (rr == USBD_BUSY) {
+      rr = usb_.Transmit((uint8_t*)rx_data, (uint16_t)sizeof(rx_data));
+    }
+  }
 
   char buf[64];
   int n = usb_.PopRx((uint8_t*)buf, sizeof(buf));
 
   if (n > 0) {
-    usb_.Transmit((uint8_t*)buf, (uint16_t)n);
+    uint8_t r = usb_.Transmit((uint8_t*)buf, (uint16_t)n);
+    while (r == USBD_BUSY) {
+      r = usb_.Transmit((uint8_t*)buf, (uint16_t)n);
+    }
   }
 
   uint32_t t = HAL_GetTick();
@@ -93,12 +116,28 @@ void Device::Run(void) {
   n = snprintf(buf, sizeof(buf), "%lu\n", (unsigned long)t);
 
   if (n > 0) {
-    usb_.Transmit((uint8_t*)buf, (uint16_t)n);
+    uint8_t rs = usb_.Transmit((uint8_t*)buf, (uint16_t)n);
+    while (rs == USBD_BUSY) {
+      rs = usb_.Transmit((uint8_t*)buf, (uint16_t)n);
+    }
   }
 }
 
 void Device::DelayMs(uint32_t ms) {
   HAL_Delay(ms);
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	HAL_UART_Receive_IT(&huart2, rx_buff, 5);
+  rx_data[0] = rx_buff[0];
+  rx_data[1] = rx_buff[1];
+  rx_data[2] = rx_buff[2];
+  rx_data[3] = rx_buff[3];
+  rx_data[4] = rx_buff[4];
+  uart_rx_ready = true;
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
+
 }
 
 extern "C" void BoardUsb_OnRx(const uint8_t* data, uint16_t len) {
