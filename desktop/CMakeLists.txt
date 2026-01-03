@@ -7,7 +7,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets SerialPort)
+find_package(Qt6 REQUIRED COMPONENTS Widgets SerialPort Core)
 
 set(PROJECT_SOURCES
     main.cpp
@@ -21,5 +21,5 @@ qt_add_executable(desktop
     ${PROJECT_SOURCES}
 )
 
-target_link_libraries(desktop PRIVATE Qt6::Widgets Qt6::SerialPort)
+target_link_libraries(desktop PRIVATE Qt6::Widgets Qt6::SerialPort Qt6::Core)
 qt_finalize_executable(desktop)
