@@ -17,6 +17,8 @@ class Queue {
 
   volatile uint16_t head_ = 0;
   volatile uint16_t tail_ = 0;
+  volatile bool full_ = false;
+
   uint8_t buf_[kSize] {};
 };
 

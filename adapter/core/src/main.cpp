@@ -1,7 +1,7 @@
 #include "device.hpp"
 
-BoardLedController leds;
-BoardUsb usb;
+LedController leds;
+Usb usb;
 Uart uart;
 Device dev(leds, usb, uart);
 

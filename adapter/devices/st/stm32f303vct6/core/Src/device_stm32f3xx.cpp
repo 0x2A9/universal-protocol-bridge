@@ -4,7 +4,56 @@
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
 
-static volatile bool uart_rx_ready = false;
+void LedController::ToggleInfo(void) {
+  HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_8);
+}
+
+void LedController::SetWarn(void) {
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
+}
+
+void LedController::ResetWarn(void) {
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
+}
+
+Usb::Usb() {
+  /* Avoid multiple instances */
+  if (instance_ != nullptr) Error_Handler();
+
+  instance_ = this;
+}
+
+/* May return nullptr */
+Usb *Usb::TryInstance() {
+  return instance_;
+}
+
+bool Usb::IsReady(void) const {
+  return USB_GetDeviceHandle()->dev_state == USBD_STATE_CONFIGURED;
+}
+
+uint8_t Usb::Transmit(uint8_t *buf, uint16_t len) {
+  uint8_t status = CDC_Transmit_FS(buf, len);
+
+  while (status == USBD_BUSY) {
+    status = CDC_Transmit_FS(buf, len);
+  }
+
+  return status;
+}
+
+uint16_t Usb::PopRx(uint8_t *dst, uint32_t len) {
+  return rx_buf_.Pop(dst, len);
+}
+
+bool Usb::PushRx(const uint8_t *data, uint32_t len) {
+  if (rx_buf_.Free() >= len) {
+    rx_buf_.Push(data, len);
+    return true;
+  }
+
+  return false;
+}
 
 Uart::Uart() {
   /* Avoid multiple instances */
@@ -69,57 +118,6 @@ bool Uart::IsNewRxData(void) {
 }
 void Uart::ClearNewRxDataFlag(void) {
   is_new_rx_data_ = false;
-}
-
-void BoardLedController::ToggleInfo(void) {
-  HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_8);
-}
-
-void BoardLedController::SetWarn(void) {
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
-}
-
-void BoardLedController::ResetWarn(void) {
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
-}
-
-BoardUsb::BoardUsb() {
-  /* Avoid multiple instances */
-  if (instance_ != nullptr) Error_Handler();
-
-  instance_ = this;
-}
-
-/* May return nullptr */
-BoardUsb *BoardUsb::TryInstance() {
-  return instance_;
-}
-
-bool BoardUsb::IsReady(void) const {
-  return USB_GetDeviceHandle()->dev_state == USBD_STATE_CONFIGURED;
-}
-
-uint8_t BoardUsb::Transmit(uint8_t *buf, uint16_t len) {
-  uint8_t status = CDC_Transmit_FS(buf, len);
-
-  while (status == USBD_BUSY) {
-    status = CDC_Transmit_FS(buf, len);
-  }
-
-  return status;
-}
-
-uint16_t BoardUsb::PopRx(uint8_t *dst, uint32_t len) {
-  return rx_buf_.Pop(dst, len);
-}
-
-bool BoardUsb::PushRx(const uint8_t *data, uint32_t len) {
-  if (rx_buf_.Free() >= len) {
-    rx_buf_.Push(data, len);
-    return true;
-  }
-
-  return false;
 }
 
 void Device::Init(void) {

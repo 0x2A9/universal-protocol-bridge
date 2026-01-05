@@ -10,19 +10,25 @@ extern "C" {
 
 class LedController {
  public:
-  virtual void ToggleInfo(void) = 0;
-  virtual void SetWarn(void) = 0;
-  virtual void ResetWarn(void) = 0;
-
-  virtual ~LedController() = default;
+  void ToggleInfo(void);
+  void SetWarn(void);
+  void ResetWarn(void);
 };
 
 class Usb {
  public:
-  virtual bool IsReady(void) const = 0;
-  virtual uint8_t Transmit(uint8_t *buf, uint16_t len) = 0;
+  explicit Usb(void);
+  static Usb *TryInstance(void);
 
-  virtual ~Usb() = default;
+  bool IsReady(void) const;
+  uint8_t Transmit(uint8_t *buf, uint16_t len);
+
+  uint16_t PopRx(uint8_t *dst, uint32_t len);
+  bool PushRx(const uint8_t *data, uint32_t len);
+
+ private:
+  static inline Usb *instance_ = nullptr;
+  Queue rx_buf_;
 };
 
 class Uart {
@@ -50,32 +56,9 @@ class Uart {
   Queue rx_buf_;
 };
 
-class BoardLedController : public LedController {
- public:
-  void ToggleInfo(void) override;
-  void SetWarn(void) override;
-  void ResetWarn(void) override;
-};
-
-class BoardUsb : public Usb {
- public:
-  explicit BoardUsb(void);
-  static BoardUsb *TryInstance(void);
-
-  bool IsReady(void) const override;
-  uint8_t Transmit(uint8_t *buf, uint16_t len) override;
-
-  uint16_t PopRx(uint8_t *dst, uint32_t len);
-  bool PushRx(const uint8_t *data, uint32_t len);
-
- private:
-  static inline BoardUsb *instance_  = nullptr;
-  Queue rx_buf_;
-};
-
 class Device {
  public:
-  explicit Device(BoardLedController &lc, BoardUsb &usb, Uart &uart)
+  explicit Device(LedController &lc, Usb &usb, Uart &uart)
       : leds_(lc), usb_(usb), uart_(uart) {}
 
   void Init(void);
@@ -83,8 +66,8 @@ class Device {
   static void DelayMs(uint32_t ms);
 
  private:
-  BoardLedController &leds_;
-  BoardUsb &usb_;
+  LedController &leds_;
+  Usb &usb_;
   Uart &uart_;
 };
 
