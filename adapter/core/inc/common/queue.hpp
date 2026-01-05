@@ -7,8 +7,10 @@ class Queue {
  public:
   uint16_t Count() const;
   uint16_t Free() const;
-  uint16_t Pop(uint8_t *dst, uint32_t len);
-  void Push(const uint8_t *data, uint32_t len);
+  uint16_t Pop(uint8_t *dst, uint16_t len);
+  void Push(const uint8_t *data, uint16_t len);
+  uint16_t Peek(uint8_t* dst, uint16_t len) const;
+  void Drop(uint16_t len);
 
  private:
   /* Should be the power of two */

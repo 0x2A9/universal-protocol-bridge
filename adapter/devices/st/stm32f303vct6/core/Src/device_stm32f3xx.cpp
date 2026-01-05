@@ -32,14 +32,30 @@ bool Usb::IsReady(void) const {
   return USB_GetDeviceHandle()->dev_state == USBD_STATE_CONFIGURED;
 }
 
-uint8_t Usb::Transmit(uint8_t *buf, uint16_t len) {
-  uint8_t status = CDC_Transmit_FS(buf, len);
+bool Usb::AddTx(const uint8_t *buf, uint16_t len) {
+  if (tx_buf_.Free() < len) return false;
+  tx_buf_.Push(buf, len);
+  return true;
+}
 
-  while (status == USBD_BUSY) {
-    status = CDC_Transmit_FS(buf, len);
+void Usb::ProcessTx(void) {
+  if (!IsReady()) return;
+
+  uint16_t avail = tx_buf_.Count();
+  if (avail == 0) return;
+
+  // CDC FS packet is 64 bytes max
+  uint8_t tmp[64];
+  uint16_t n = (avail > sizeof(tmp)) ? (uint16_t)sizeof(tmp) : avail;
+
+  n = tx_buf_.Peek(tmp, n);
+  if (n == 0) return;
+
+  uint8_t st = CDC_Transmit_FS(tmp, n);
+  if (st == USBD_OK) {
+    tx_buf_.Drop(n); // commit only on success
   }
-
-  return status;
+  // if BUSY: do nothing, try again next loop
 }
 
 uint16_t Usb::PopRx(uint8_t *dst, uint32_t len) {
@@ -149,17 +165,21 @@ void Device::Run(void) {
     leds_.SetWarn();
     uint8_t uart_data[64];
     n = uart_.PopRx(uart_data, sizeof(uart_data));
-    usb_.Transmit((uint8_t*)uart_data, (uint16_t)n);
+    usb_.AddTx((uint8_t*)uart_data, (uint16_t)n);
     uart_.ClearNewRxDataFlag();
   }
+
+  usb_.ProcessTx();
 
   uint32_t t = HAL_GetTick();
 
   n = snprintf(buf, sizeof(buf), "%lu\n", (unsigned long)t);
 
   if (n > 0) {
-    usb_.Transmit((uint8_t*)buf, (uint16_t)n);
+    usb_.AddTx((uint8_t*)buf, (uint16_t)n);
   }
+
+  usb_.ProcessTx();
 }
 
 void Device::DelayMs(uint32_t ms) {

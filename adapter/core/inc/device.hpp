@@ -21,14 +21,17 @@ class Usb {
   static Usb *TryInstance(void);
 
   bool IsReady(void) const;
-  uint8_t Transmit(uint8_t *buf, uint16_t len);
+  bool AddTx(const uint8_t *buf, uint16_t len);
+  void ProcessTx();
 
   uint16_t PopRx(uint8_t *dst, uint32_t len);
   bool PushRx(const uint8_t *data, uint32_t len);
 
  private:
   static inline Usb *instance_ = nullptr;
+
   Queue rx_buf_;
+  Queue tx_buf_;
 };
 
 class Uart {
