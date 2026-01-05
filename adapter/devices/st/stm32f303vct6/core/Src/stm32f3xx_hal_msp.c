@@ -19,7 +19,7 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
-#include "system_init.h"
+#include "board.h"
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */

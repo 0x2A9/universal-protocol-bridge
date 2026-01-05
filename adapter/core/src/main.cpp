@@ -1,10 +1,11 @@
 #include "device.hpp"
 
-int main(void) { 
-  BoardLedController leds;
-  BoardUsb usb;
-  Device dev(leds, usb);
+BoardLedController leds;
+BoardUsb usb;
+Uart uart;
+Device dev(leds, usb, uart);
 
+int main(void) { 
   dev.Init();
 
   while (true) {

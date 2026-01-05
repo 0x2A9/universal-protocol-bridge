@@ -1,16 +1,86 @@
 #include <stdio.h>
-#include "system_init.h"
+#include "board.h"
 #include "device.hpp"
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
 
-uint8_t tx_buff[]="USBm\n";
-uint8_t rx_buff[5];
-uint8_t rx_data[5];
 static volatile bool uart_rx_ready = false;
+
+Uart::Uart() {
+  /* Avoid multiple instances */
+  if (instance_ != nullptr) Error_Handler();
+
+  instance_ = this;
+}
+
+/* May return nullptr */
+Uart *Uart::TryInstance(void) {
+  return instance_;
+}
+
+bool Uart::Init(void) {
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {};
+
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2;
+  PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  MX_USART2_UART_Init();
+  StartRx();
+
+  return true;
+}
+
+uint8_t Uart::Transmit(uint8_t *buf, uint16_t len) {
+  return HAL_UART_Transmit(&huart2, buf, len, 10);
+}
+
+void Uart::StartRx(void) {
+  HAL_UART_Receive_IT(&huart2, rx_tmp_, sizeof(rx_tmp_));
+}
+
+uint16_t Uart::PopRx(uint8_t *dst, uint32_t len) {
+  return rx_buf_.Pop(dst, len);
+}
+
+bool Uart::PushRx(const uint8_t *data, uint32_t len) {
+  if (rx_buf_.Free() >= len) {
+    rx_buf_.Push(data, len);
+    return true;
+  }
+
+  return false;
+}
+
+bool Uart::CopyRx(void) {
+  if (PushRx(rx_tmp_, sizeof(rx_tmp_))) {
+    is_new_rx_data_ = true;
+    return true;
+  }
+
+  return false;
+}
+
+bool Uart::IsNewRxData(void) {
+  return is_new_rx_data_;
+}
+void Uart::ClearNewRxDataFlag(void) {
+  is_new_rx_data_ = false;
+}
 
 void BoardLedController::ToggleInfo(void) {
   HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_8);
+}
+
+void BoardLedController::SetWarn(void) {
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
+}
+
+void BoardLedController::ResetWarn(void) {
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
 }
 
 BoardUsb::BoardUsb() {
@@ -21,7 +91,7 @@ BoardUsb::BoardUsb() {
 }
 
 /* May return nullptr */
-BoardUsb* BoardUsb::TryInstance() {
+BoardUsb *BoardUsb::TryInstance() {
   return instance_;
 }
 
@@ -29,48 +99,27 @@ bool BoardUsb::IsReady(void) const {
   return USB_GetDeviceHandle()->dev_state == USBD_STATE_CONFIGURED;
 }
 
-uint8_t BoardUsb::Transmit(uint8_t* buf, uint16_t len) {
-  return CDC_Transmit_FS(buf, len);
-}
+uint8_t BoardUsb::Transmit(uint8_t *buf, uint16_t len) {
+  uint8_t status = CDC_Transmit_FS(buf, len);
 
-uint16_t BoardUsb::ItemCount() const {
-  return (head_ - tail_) & kBufMask;
-}
-
-uint16_t BoardUsb::PopRx(uint8_t* dst, uint32_t len) {
-  uint16_t n = ItemCount();
-  if (n > len) n = len;
-
-  for (uint32_t i = 0; i < n; i++) {
-    dst[i] = buf_[tail_];
-    tail_ = (tail_ + 1) & kBufMask;
-  }
-  return n;
-}
-
-void BoardUsb::PushRx(const uint8_t* data, uint32_t len) {
-  // Push bytes
-  for (uint32_t i = 0; i < len; i++) {
-    uint16_t next = (head_ + 1) & kBufMask;
-    if (next == tail_) break;
-
-    buf_[head_] = data[i];
-    head_ = next;
+  while (status == USBD_BUSY) {
+    status = CDC_Transmit_FS(buf, len);
   }
 
-  // Append newline at end of message
-  uint16_t next = (head_ + 1) & kBufMask;
-  if (next != tail_) {
-    buf_[head_] = '\n';
-    head_ = next;
-  } else {
-    // No space to append -> replace last byte with '\n'
-    // (only if message had at least 1 byte pushed)
-    if (head_ != tail_) {
-      uint16_t last = (head_ - 1) & kBufMask;
-      buf_[last] = '\n';
-    }
+  return status;
+}
+
+uint16_t BoardUsb::PopRx(uint8_t *dst, uint32_t len) {
+  return rx_buf_.Pop(dst, len);
+}
+
+bool BoardUsb::PushRx(const uint8_t *data, uint32_t len) {
+  if (rx_buf_.Free() >= len) {
+    rx_buf_.Push(data, len);
+    return true;
   }
+
+  return false;
 }
 
 void Device::Init(void) {
@@ -79,36 +128,31 @@ void Device::Init(void) {
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
 
-  MX_USART2_UART_Init();
-  HAL_UART_Receive_IT(&huart2, rx_buff, 5);
+  uart_.Init();
 }
 
 void Device::Run(void) {
+  /* Simple USB-UART test */
   if (!usb_.IsReady()) return;
 
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
-  HAL_Delay(500);
-  HAL_UART_Transmit(&huart2, tx_buff, 5, 10);
-
-  /* Simple USB test */
+  leds_.ResetWarn();
   leds_.ToggleInfo();
 
-  if (uart_rx_ready) {
-    uart_rx_ready = false; 
-    uint8_t rr = usb_.Transmit((uint8_t*)rx_data, (uint16_t)sizeof(rx_data));
-    while (rr == USBD_BUSY) {
-      rr = usb_.Transmit((uint8_t*)rx_data, (uint16_t)sizeof(rx_data));
-    }
-  }
+  int n = 0;
 
   char buf[64];
-  int n = usb_.PopRx((uint8_t*)buf, sizeof(buf));
+  n = usb_.PopRx((uint8_t*)buf, sizeof(buf));
 
   if (n > 0) {
-    uint8_t r = usb_.Transmit((uint8_t*)buf, (uint16_t)n);
-    while (r == USBD_BUSY) {
-      r = usb_.Transmit((uint8_t*)buf, (uint16_t)n);
-    }
+    uart_.Transmit((uint8_t*)buf, (uint16_t)n);
+  }
+
+  if (uart_.IsNewRxData()) {
+    leds_.SetWarn();
+    uint8_t uart_data[64];
+    n = uart_.PopRx(uart_data, sizeof(uart_data));
+    usb_.Transmit((uint8_t*)uart_data, (uint16_t)n);
+    uart_.ClearNewRxDataFlag();
   }
 
   uint32_t t = HAL_GetTick();
@@ -116,32 +160,10 @@ void Device::Run(void) {
   n = snprintf(buf, sizeof(buf), "%lu\n", (unsigned long)t);
 
   if (n > 0) {
-    uint8_t rs = usb_.Transmit((uint8_t*)buf, (uint16_t)n);
-    while (rs == USBD_BUSY) {
-      rs = usb_.Transmit((uint8_t*)buf, (uint16_t)n);
-    }
+    usb_.Transmit((uint8_t*)buf, (uint16_t)n);
   }
 }
 
 void Device::DelayMs(uint32_t ms) {
   HAL_Delay(ms);
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	HAL_UART_Receive_IT(&huart2, rx_buff, 5);
-  rx_data[0] = rx_buff[0];
-  rx_data[1] = rx_buff[1];
-  rx_data[2] = rx_buff[2];
-  rx_data[3] = rx_buff[3];
-  rx_data[4] = rx_buff[4];
-  uart_rx_ready = true;
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
-
-}
-
-extern "C" void BoardUsb_OnRx(const uint8_t* data, uint16_t len) {
-  if (BoardUsb* u = BoardUsb::TryInstance()) {
-    u->PushRx(data, len);
-  }
 }
