@@ -16,6 +16,16 @@ MainWindow::MainWindow(QWidget *parent)
     ensureDefaults();
     loadUiFromSettings();
 
+    protocol = new ProtocolManager(&serial, this);
+
+    connect(protocol, &ProtocolManager::messageReceived, this, [this](uint16_t cmd, QByteArray data) {
+        appendRx(data);
+    });
+
+    connect(protocol, &ProtocolManager::errorReceived, this, [this](uint16_t cmd, uint16_t err) {
+        appendMessage(QByteArray::number(err), QLatin1StringView{"ERR"}, Qt::red);
+    });
+
     connect(ui->dsSave,  &QPushButton::clicked, this, &MainWindow::saveDevice);
     connect(ui->brsSave, &QPushButton::clicked, this, &MainWindow::saveBaudRate);
     connect(ui->dtsSend, &QPushButton::clicked, this, &MainWindow::saveDataBits);
@@ -187,14 +197,10 @@ void MainWindow::onSendMessage()
     }
 
     QByteArray data = ui->smInput->toPlainText().toUtf8();
+    if (data.isEmpty()) return;
 
-    const QString lineEnding = ui->cbLineEnding->currentText();
-    if (lineEnding == LINE_CRLF)
-        data.append("\r\n");
-    else
-        data.append("\n");
+    protocol->sendCommand(0x0101, data);
 
-    serial.write(data);
     appendTx(data);
     ui->smInput->clear();
 }

@@ -7,6 +7,7 @@
 #include <QList>
 #include <QStringView>
 #include <QLatin1StringView>
+#include "protocolmanager.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -63,6 +64,8 @@ private:
     void appendRx(const QByteArray &data);
     void appendTx(const QByteArray &data);
     QSerialPort::Parity parityFromString(QStringView p) const;
+
+    ProtocolManager *protocol;
 
 private:
     Ui::MainWindow *ui;
