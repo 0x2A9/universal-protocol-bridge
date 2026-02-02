@@ -23,10 +23,10 @@ class Usb {
   bool Init(void);
   bool IsReady(void) const;
 
-  bool EnqueueTx(const uint8_t *src, uint16_t len);
+  bool EnqueueTx(const uint8_t *src, const uint16_t len);
   void ProcessTx(void);
-  bool EnqueueRx(const uint8_t *src, uint16_t len);
-  uint16_t DequeueRx(uint8_t *dst, uint16_t len);
+  bool EnqueueRx(const uint8_t *src, const uint16_t len);
+  uint16_t DequeueRx(uint8_t *dst, const uint16_t len);
 
  private:
   static inline Usb *instance_ = nullptr;
@@ -43,17 +43,17 @@ class Uart {
   bool Init(void);
   void StartRx(void);
 
-  uint8_t Transmit(uint8_t *src, uint16_t len);
+  uint8_t Transmit(uint8_t *src, const uint16_t len);
   bool CopyRx(void);
-  bool EnqueueRx(const uint8_t *src, uint16_t len);
-  uint16_t DequeueRx(uint8_t *dst, uint16_t len);
+  bool EnqueueRx(const uint8_t *src, const uint16_t len);
+  uint16_t DequeueRx(uint8_t *dst, const uint16_t len);
 
   bool IsNewRxData(void);
   void ClearNewRxDataFlag(void);
 
  private:
   static constexpr uint16_t kRxTmpBufSize = 8;
-  static inline Uart *instance_  = nullptr;
+  static inline Uart *instance_ = nullptr;
 
   bool is_new_rx_data_ = false;
 
@@ -69,7 +69,7 @@ class Device {
 
   void Init(void);
   void Run(void);
-  static void DelayMs(uint32_t ms);
+  static void DelayMs(const uint32_t ms);
 
  private:
   LedController &leds_;

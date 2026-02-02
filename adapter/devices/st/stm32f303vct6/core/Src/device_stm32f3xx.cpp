@@ -18,7 +18,7 @@ void LedController::ResetWarn(void) {
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
 }
 
-Usb::Usb() {
+Usb::Usb(void) {
   /* Avoid multiple instances */
   if (instance_ != nullptr) Error_Handler();
 
@@ -26,7 +26,7 @@ Usb::Usb() {
 }
 
 /* May return nullptr */
-Usb *Usb::TryInstance() {
+Usb *Usb::TryInstance(void) {
   return instance_;
 }
 
@@ -39,7 +39,7 @@ bool Usb::IsReady(void) const {
   return USB_GetDeviceHandle()->dev_state == USBD_STATE_CONFIGURED;
 }
 
-bool Usb::EnqueueTx(const uint8_t *src, uint16_t len) {
+bool Usb::EnqueueTx(const uint8_t *src, const uint16_t len) {
   if (tx_buf_.Free() < len) return false;
   tx_buf_.Push(src, len);
   return true;
@@ -67,17 +67,17 @@ void Usb::ProcessTx(void) {
   /* If BUSY: do nothing, try again next loop */
 }
 
-bool Usb::EnqueueRx(const uint8_t *src, uint16_t len) {
+bool Usb::EnqueueRx(const uint8_t *src, const uint16_t len) {
   if (rx_buf_.Free() < len) return false;
   rx_buf_.Push(src, len);
   return true;
 }
 
-uint16_t Usb::DequeueRx(uint8_t *dst, uint16_t len) {
+uint16_t Usb::DequeueRx(uint8_t *dst, const uint16_t len) {
   return rx_buf_.Pop(dst, len);
 }
 
-Uart::Uart() {
+Uart::Uart(void) {
   /* Avoid multiple instances */
   if (instance_ != nullptr) Error_Handler();
 
@@ -110,7 +110,7 @@ void Uart::StartRx(void) {
   HAL_UART_Receive_IT(&huart2, rx_tmp_, sizeof(rx_tmp_));
 }
 
-uint8_t Uart::Transmit(uint8_t *src, uint16_t len) {
+uint8_t Uart::Transmit(uint8_t *src, const uint16_t len) {
   return HAL_UART_Transmit(&huart2, src, len, 10);
 }
 
@@ -120,13 +120,13 @@ bool Uart::CopyRx(void) {
   return true;
 }
 
-bool Uart::EnqueueRx(const uint8_t *src, uint16_t len) {
+bool Uart::EnqueueRx(const uint8_t *src, const uint16_t len) {
   if (rx_buf_.Free() < len) return false;
   rx_buf_.Push(src, len);
   return true;
 }
 
-uint16_t Uart::DequeueRx(uint8_t *dst, uint16_t len) {
+uint16_t Uart::DequeueRx(uint8_t *dst, const uint16_t len) {
   return rx_buf_.Pop(dst, len);
 }
 
@@ -181,6 +181,6 @@ void Device::Run(void) {
   usb_.ProcessTx();
 }
 
-void Device::DelayMs(uint32_t ms) {
+void Device::DelayMs(const uint32_t ms) {
   HAL_Delay(ms);
 }

@@ -7,8 +7,8 @@ class Queue {
  public:
   uint16_t Count(void) const;
   uint16_t Free(void) const;
-  uint16_t Pop(uint8_t *dst, const uint16_t len);
   void Push(const uint8_t *src, const uint16_t len);
+  uint16_t Pop(uint8_t *dst, const uint16_t len);
   uint16_t Peek(uint8_t *dst, const uint16_t len) const;
   void Drop(const uint16_t len);
 
