@@ -110,7 +110,7 @@ CFLAGS   := $(MCUFLAGS) -O$(OPT) $(MODE_CFLAGS) -ffunction-sections -fdata-secti
             -Wall -Wextra $(DEFS) $(INCS)
 
 CXXFLAGS := $(MCUFLAGS) -O$(OPT) $(MODE_CFLAGS) -ffunction-sections -fdata-sections \
-            -fno-exceptions -fno-rtti -std=gnu++20 \
+            -fno-exceptions -fno-rtti -std=gnu++23 \
             -Wall -Wextra $(DEFS) $(INCS)
 
 ASFLAGS  := $(MCUFLAGS) -x assembler-with-cpp $(DEFS) $(INCS)
