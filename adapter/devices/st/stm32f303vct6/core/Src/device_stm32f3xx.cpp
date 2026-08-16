@@ -77,11 +77,37 @@ uint16_t Usb::DequeueRx(uint8_t *dst, const uint16_t len) {
   return rx_buf_.Pop(dst, len);
 }
 
+I2c::I2c(void) {
+  /* Avoid multiple instances */
+  if (instance_ != nullptr) Error_Handler();
+
+  instance_ = this;
+}
+
+/* May return nullptr */
+I2c *I2c::TryInstance(void) {
+  return instance_;
+}
+
 Uart::Uart(void) {
   /* Avoid multiple instances */
   if (instance_ != nullptr) Error_Handler();
 
   instance_ = this;
+}
+
+bool I2c::Init(void) {
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {};
+
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C2;
+  PeriphClkInit.I2c2ClockSelection   = RCC_I2C2CLKSOURCE_HSI;
+
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  MX_I2C2_Init();
 }
 
 /* May return nullptr */
@@ -94,6 +120,7 @@ bool Uart::Init(void) {
 
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2;
   PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
+
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -143,6 +170,7 @@ void Device::Init(void) {
   MX_GPIO_Init();
 
   usb_.Init();
+  i2c_.Init();
   uart_.Init();
 }
 

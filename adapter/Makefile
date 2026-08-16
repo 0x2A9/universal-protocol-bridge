@@ -96,6 +96,8 @@ ifeq ($(DEVICE),stm32f303vct6)
             $(DEVICE_DIR)/hal/Src/stm32f3xx_hal_dma.c \
             $(DEVICE_DIR)/hal/Src/stm32f3xx_hal_uart_ex.c \
             $(DEVICE_DIR)/hal/Src/stm32f3xx_hal_uart.c \
+            $(DEVICE_DIR)/hal/Src/stm32f3xx_hal_i2c.c \
+            $(DEVICE_DIR)/hal/Src/stm32f3xx_hal_i2c_ex.c \
             $(DEVICE_DIR)/cmsis/Device/ST/STM32F3xx/Source/system_stm32f3xx.c \
             $(DEVICE_DIR)/middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/usbd_cdc.c \
             $(DEVICE_DIR)/middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c \

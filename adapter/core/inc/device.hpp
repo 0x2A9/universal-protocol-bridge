@@ -35,6 +35,17 @@ class Usb {
   Queue tx_buf_;
 };
 
+class I2c {
+  public:
+   explicit I2c(void);
+   static I2c *TryInstance(void);
+
+   bool Init(void);
+
+  private:
+   static inline I2c *instance_ = nullptr;
+};
+
 class Uart {
  public:
   explicit Uart(void);
@@ -52,7 +63,7 @@ class Uart {
   void ClearNewRxDataFlag(void);
 
  private:
-  static constexpr uint16_t kRxTmpBufSize = 8;
+  static constexpr uint16_t kRxTmpBufSize = 8U;
   static inline Uart *instance_ = nullptr;
 
   bool is_new_rx_data_ = false;
@@ -64,8 +75,8 @@ class Uart {
 
 class Device {
  public:
-  explicit Device(LedController &lc, Usb &usb, Uart &uart)
-      : leds_(lc), usb_(usb), uart_(uart) {}
+  explicit Device(LedController &lc, Usb &usb, I2c &i2c, Uart &uart)
+      : leds_(lc), usb_(usb), i2c_(i2c), uart_(uart) {}
 
   void Init(void);
   void Run(void);
@@ -74,6 +85,7 @@ class Device {
  private:
   LedController &leds_;
   Usb &usb_;
+  I2c &i2c_;
   Uart &uart_;
 };
 

@@ -2,7 +2,7 @@
 Firmware for an **STM32-based USB** adapter. The adapter bridges **USB (CDC)** communication with on-board peripherals such as ```UART```, ```I²C```, and ```SPI```devices
 
 # Set Up
-- Download the special ```arm-none-eabi``` ```13.2.1``` toolchain for the **ARM** architecture
+- Download a special ```Arm GNU Toolchain 15.3.Rel1 (Build arm-15.149)) 15.3.1 20260627``` for the **ARM** architecture
     ```bash
     sudo apt install gcc-arm-none-eabi gdb-arm-none-eabi
     ```

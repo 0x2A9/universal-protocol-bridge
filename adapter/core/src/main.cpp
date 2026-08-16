@@ -2,8 +2,9 @@
 
 LedController leds;
 Usb usb;
+I2c i2c;
 Uart uart;
-Device dev(leds, usb, uart);
+Device dev(leds, usb, i2c, uart);
 
 int main(void) { 
   dev.Init();
