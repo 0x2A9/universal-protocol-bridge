@@ -55,7 +55,8 @@ INCS := -Icore/inc \
 
 # ---- Sources ----
 SRCS := core/src/main.cpp \
-        core/src/common/queue.cpp
+        core/src/common/queue.cpp \
+        core/src/common/dcp.cpp
 
 # ---- Configure params based on choosen device ----
 ifeq ($(DEVICE),stm32f303vct6)

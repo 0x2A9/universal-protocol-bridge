@@ -14,6 +14,8 @@ set(PROJECT_SOURCES
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
+    dcp.h
+    dcp.cpp
 )
 
 qt_add_executable(desktop

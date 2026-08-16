@@ -122,18 +122,21 @@ void MainWindow::saveBaudRate()
 {
     settings.setValue(KEY_BAUDRATE,
                       ui->brsInput->toPlainText().toInt());
+    sendUartCfgFrame();
 }
 
 void MainWindow::saveDataBits()
 {
     settings.setValue(KEY_DATABITS,
                       ui->dtsInput->toPlainText().toInt());
+    sendUartCfgFrame();
 }
 
 void MainWindow::saveStopBits()
 {
     settings.setValue(KEY_STOPBITS,
                       ui->spsInput->toPlainText().toInt());
+    sendUartCfgFrame();
 }
 
 void MainWindow::saveParity()
@@ -144,6 +147,32 @@ void MainWindow::saveParity()
         settings.setValue(KEY_PARITY, PARITY_ODD);
     else
         settings.setValue(KEY_PARITY, PARITY_NONE);
+    sendUartCfgFrame();
+}
+
+void MainWindow::sendUartCfgFrame()
+{
+    uint32_t baud = uint32_t(settings.value(KEY_BAUDRATE).toInt());
+    uint8_t dataBits = uint8_t(settings.value(KEY_DATABITS).toInt());
+    uint8_t stopBits = uint8_t(settings.value(KEY_STOPBITS).toInt());
+
+    const QString parityStr = settings.value(KEY_PARITY).toString();
+    uint8_t parity = 0;
+    if (parityStr == PARITY_EVEN)
+        parity = 1;
+    else if (parityStr == PARITY_ODD)
+        parity = 2;
+
+    QByteArray payload;
+    payload.append(char(uint8_t(baud >> 24)));
+    payload.append(char(uint8_t(baud >> 16)));
+    payload.append(char(uint8_t(baud >> 8)));
+    payload.append(char(uint8_t(baud)));
+    payload.append(char(dataBits));
+    payload.append(char(stopBits));
+    payload.append(char(parity));
+
+    sendDcpFrame(DcpCmd::SetCfg, DcpInterface::Uart, nextTxnId(), payload);
 }
 
 void MainWindow::reconnect()
@@ -172,16 +201,46 @@ void MainWindow::reconnect()
 void MainWindow::onSerialDataReady()
 {
     lastRxTimer.restart();
-    rxBuffer.append(serial.readAll());
+    dcpParser.feed(serial.readAll());
 
-    while (rxBuffer.contains('\n')) {
-        const int idx = rxBuffer.indexOf('\n');
-        QByteArray line = rxBuffer.left(idx);
-        rxBuffer.remove(0, idx + 1);
+    DcpFrame frame;
+    DcpError err;
+    DcpPopResult r;
+    while ((r = dcpParser.popFrame(frame, err)) != DcpPopResult::None) {
+        if (r == DcpPopResult::ProtocolError) {
+            qWarning() << "DCP protocol error:" << dcpErrorToString(err);
+            continue;
+        }
+        
+        handleDcpFrame(frame);
+    }
+}
 
-        line = line.trimmed();
-        if (!line.isEmpty())
-            appendRx(line);
+void MainWindow::handleDcpFrame(const DcpFrame &frame)
+{
+    if (frame.txnId == 0) {
+        if (frame.cmd == DcpCmd::Data && frame.interface == DcpInterface::Uart)
+            appendRx(frame.payload);
+
+        return;
+    }
+
+    switch (frame.cmd) {
+    case DcpCmd::Data:
+        if (frame.interface == DcpInterface::Uart)
+            appendRx(frame.payload);
+        break;
+
+    case DcpCmd::Err: {
+        DcpError code = frame.payload.isEmpty()
+                            ? DcpError::MalformedFrame
+                            : static_cast<DcpError>(uint8_t(frame.payload.at(0)));
+        appendRx(QByteArrayLiteral("ERR ") + dcpErrorToString(code).toUtf8());
+        break;
+    }
+
+    default:
+        break;
     }
 }
 
@@ -239,7 +298,7 @@ void MainWindow::onSendMessage()
     else
         data.append("\n");
 
-    serial.write(data);
+    sendDcpFrame(DcpCmd::Run, DcpInterface::Uart, nextTxnId(), data);
     appendTx(data);
     ui->smInput->clear();
 }
@@ -247,6 +306,21 @@ void MainWindow::onSendMessage()
 void MainWindow::appendTx(const QByteArray &data)
 {
     appendMessage(data, QLatin1StringView{"TX"}, Qt::magenta);
+}
+
+uint8_t MainWindow::nextTxnId()
+{
+    do {
+        txnIdCounter++;
+    } while (txnIdCounter == 0);
+    return txnIdCounter;
+}
+
+void MainWindow::sendDcpFrame(DcpCmd cmd, DcpInterface iface, uint8_t txnId,
+                              const QByteArray &payload)
+{
+    if (!serial.isOpen()) return;
+    serial.write(dcpEncode(cmd, iface, txnId, payload));
 }
 
 QSerialPort::Parity MainWindow::parityFromString(QStringView p) const

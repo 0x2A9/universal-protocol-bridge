@@ -9,6 +9,8 @@
 #include <QLatin1StringView>
 #include <QElapsedTimer>
 
+#include "dcp.h"
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -82,6 +84,12 @@ private:
     void setConnectionState(ConnectionState state);
     inline static QString connectionStateText(ConnectionState state);
 
+    uint8_t nextTxnId();
+    void handleDcpFrame(const DcpFrame &frame);
+    void sendDcpFrame(DcpCmd cmd, DcpInterface iface, uint8_t txnId,
+                      const QByteArray &payload = QByteArray());
+    void sendUartCfgFrame();
+
     std::optional<ConnectionState> connectionState;
 
 private:
@@ -89,8 +97,10 @@ private:
     QSerialPort serial;
     QSettings settings;
     QTimer *heartbeatTimer;
-    QByteArray rxBuffer;
     QElapsedTimer lastRxTimer;
+
+    DcpParser dcpParser;
+    uint8_t txnIdCounter = 0;
 
 signals:
     void connectionStatusChanged(MainWindow::ConnectionState state);
