@@ -108,6 +108,8 @@ bool I2c::Init(void) {
   }
 
   MX_I2C2_Init();
+
+  return true;
 }
 
 /* May return nullptr */

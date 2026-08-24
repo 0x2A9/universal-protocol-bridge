@@ -7,6 +7,7 @@ extern "C" {
 
 #include "stm32f3xx_hal.h"
 
+extern I2C_HandleTypeDef hi2c2;
 extern UART_HandleTypeDef huart2;
 
 void SystemClock_Config(void);
