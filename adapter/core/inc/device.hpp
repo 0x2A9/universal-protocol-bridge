@@ -8,6 +8,20 @@
 extern "C" {
 #endif
 
+enum class AhtOperation {
+  kNone,
+  kInit,
+  kMeasure,
+  kReceive
+};
+
+extern volatile bool aht_tx_complete;
+extern volatile bool aht_rx_complete;
+extern volatile bool aht_i2c_error;
+
+extern volatile AhtOperation aht_operation;
+extern volatile uint32_t aht_i2c_error_code;
+
 class LedController {
  public:
   void ToggleInfo(void);

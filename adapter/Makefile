@@ -2,10 +2,10 @@ TARGET    := adapter
 BUILD_DIR := build
 
 # Toolchain
-CC      := arm-none-eabi-gcc
-CXX     := arm-none-eabi-g++
-OBJCOPY := arm-none-eabi-objcopy
-SIZE    := arm-none-eabi-size
+CC      := /home/kristina/Embedded/arm-gnu-toolchain-15.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gcc
+CXX     := /home/kristina/Embedded/arm-gnu-toolchain-15.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-g++
+OBJCOPY := /home/kristina/Embedded/arm-gnu-toolchain-15.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-objcopy
+SIZE    := /home/kristina/Embedded/arm-gnu-toolchain-15.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-size
 
 # Optimization level: 0,1,2,3,s,fast
 OPT ?= 0

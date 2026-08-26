@@ -6,6 +6,160 @@
 
 static char buf[64];
 
+volatile bool aht_tx_complete = false;
+volatile bool aht_rx_complete = false;
+volatile bool aht_i2c_error = false;
+
+
+
+volatile AhtOperation aht_operation = AhtOperation::kNone;
+volatile uint32_t aht_i2c_error_code = 0;
+namespace {
+
+constexpr uint16_t kAht10Address = 0x38U << 1;
+constexpr uint32_t kAht10PowerUpDelayMs = 40;
+constexpr uint32_t kAht10InitDelayMs = 10;
+constexpr uint32_t kAht10MeasurementDelayMs = 80;
+
+enum class Aht10State {
+  kPowerUp,
+  kMeasureTx,
+  kMeasurementWait,
+  kReceive,
+  kDataReady,
+  kError
+};
+
+Aht10State aht_state = Aht10State::kPowerUp;
+
+uint8_t aht_init_cmd[3] = {
+    0xE1,
+    0x08,
+    0x00
+};
+
+uint8_t aht_measure_cmd[3] = {
+    0xAC,
+    0x33,
+    0x00
+};
+
+uint8_t aht_rx[6]{};
+
+uint32_t aht_timestamp = 0;
+
+/* Keep this visible for debugger */
+volatile float aht_humidity = 0.0F;
+
+}  // namespace
+
+
+void TestAht10It()
+{
+  if (aht_i2c_error) {
+    aht_state = Aht10State::kError;
+  }
+
+  switch (aht_state) {
+
+    case Aht10State::kPowerUp:
+      if (HAL_GetTick() >= kAht10PowerUpDelayMs) {
+
+        /*
+         * Prepare software state BEFORE starting
+         * the asynchronous operation.
+         */
+        aht_tx_complete = false;
+        aht_operation = AhtOperation::kMeasure;
+        aht_state = Aht10State::kMeasureTx;
+
+        HAL_StatusTypeDef st =
+            HAL_I2C_Master_Transmit_IT(
+                &hi2c2,
+                kAht10Address,
+                aht_measure_cmd,
+                sizeof(aht_measure_cmd));
+
+        if (st != HAL_OK) {
+          aht_state = Aht10State::kError;
+        }
+      }
+      break;
+
+    case Aht10State::kMeasureTx:
+      if (aht_tx_complete) {
+        aht_tx_complete = false;
+
+        /*
+         * AC 33 00 has now actually been transmitted.
+         * Start measurement timeout from here.
+         */
+        aht_timestamp = HAL_GetTick();
+
+        aht_state = Aht10State::kMeasurementWait;
+      }
+      break;
+
+    case Aht10State::kMeasurementWait:
+      if ((HAL_GetTick() - aht_timestamp) >=
+          kAht10MeasurementDelayMs) {
+
+        aht_rx_complete = false;
+        aht_operation = AhtOperation::kReceive;
+        aht_state = Aht10State::kReceive;
+
+        HAL_StatusTypeDef st =
+            HAL_I2C_Master_Receive_IT(
+                &hi2c2,
+                kAht10Address,
+                aht_rx,
+                sizeof(aht_rx));
+
+        if (st != HAL_OK) {
+          aht_state = Aht10State::kError;
+        }
+      }
+      break;
+
+    case Aht10State::kReceive:
+      if (aht_rx_complete) {
+        aht_rx_complete = false;
+
+        /*
+         * Bit 7: BUSY
+         */
+        if ((aht_rx[0] & 0x80U) != 0U) {
+          aht_state = Aht10State::kError;
+          break;
+        }
+
+        uint32_t raw_humidity =
+            ((uint32_t)aht_rx[1] << 12U) |
+            ((uint32_t)aht_rx[2] << 4U) |
+            ((uint32_t)aht_rx[3] >> 4U);
+
+        aht_humidity =
+            ((float)raw_humidity * 100.0F) /
+            1048576.0F;
+
+        aht_state = Aht10State::kDataReady;
+      }
+      break;
+
+    case Aht10State::kDataReady:
+      /*
+       * Breakpoint:
+       *
+       * aht_rx
+       * aht_humidity
+       */
+      break;
+
+    case Aht10State::kError:
+      break;
+  }
+}
+
 void LedController::ToggleInfo(void) {
   HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_8);
 }
@@ -177,38 +331,63 @@ void Device::Init(void) {
 }
 
 void Device::Run(void) {
+
+  constexpr uint16_t kAht10Address = 0x38U << 1U;
+
+  volatile HAL_StatusTypeDef status =
+    HAL_I2C_IsDeviceReady(
+        &hi2c2,
+        kAht10Address,
+        3,
+        100);
+
+        uint8_t sensor_status = 0;
+
+// HAL_StatusTypeDef st =
+//     HAL_I2C_Master_Receive(
+//         &hi2c2,
+//         kAht10Address,
+//         &sensor_status,
+//         1,
+//         100);
+
+//     if ((sensor_status & 0x08U) != 0U) {
+//       aht_operation = AhtOperation::kInit;
+//     }
   /* Simple USB-UART test */
-  if (!usb_.IsReady()) return;
+  // if (!usb_.IsReady()) return;
 
   leds_.ResetWarn();
-  leds_.ToggleInfo();
+  // leds_.ToggleInfo();
 
-  int n = 0;
+  // int n = 0;
 
-  n = usb_.DequeueRx((uint8_t*)buf, sizeof(buf));
+  // n = usb_.DequeueRx((uint8_t*)buf, sizeof(buf));
 
-  if (n > 0) {
-    usb_.EnqueueTx((uint8_t*)buf, (uint16_t)n);
-  }
+  // if (n > 0) {
+  //   usb_.EnqueueTx((uint8_t*)buf, (uint16_t)n);
+  // }
 
-  if (uart_.IsNewRxData()) {
-    leds_.SetWarn();
-    n = uart_.DequeueRx((uint8_t*)buf, sizeof(buf));
-    usb_.EnqueueTx((uint8_t*)buf, (uint16_t)n);
-    uart_.ClearNewRxDataFlag();
-  }
+  // if (uart_.IsNewRxData()) {
+  //   leds_.SetWarn();
+  //   n = uart_.DequeueRx((uint8_t*)buf, sizeof(buf));
+  //   usb_.EnqueueTx((uint8_t*)buf, (uint16_t)n);
+  //   uart_.ClearNewRxDataFlag();
+  // }
 
-  usb_.ProcessTx();
+  // usb_.ProcessTx();
 
-  uint32_t t = HAL_GetTick();
+  // uint32_t t = HAL_GetTick();
 
-  n = snprintf(buf, sizeof(buf), "%lu\n", (unsigned long)t);
+  // n = snprintf(buf, sizeof(buf), "%lu\n", (unsigned long)t);
 
-  if (n > 0) {
-    usb_.EnqueueTx((uint8_t*)buf, (uint16_t)n);
-  }
+  // if (n > 0) {
+  //   usb_.EnqueueTx((uint8_t*)buf, (uint16_t)n);
+  // }
 
-  usb_.ProcessTx();
+  // usb_.ProcessTx();
+
+  TestAht10It();
 }
 
 void Device::DelayMs(const uint32_t ms) {
