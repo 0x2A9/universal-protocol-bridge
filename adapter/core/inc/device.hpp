@@ -3,18 +3,10 @@
 
 #include <stdint.h>
 #include "queue.hpp"
-#include "dcp.hpp"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-class LedController {
- public:
-  void ToggleInfo(void);
-  void SetWarn(void);
-  void ResetWarn(void);
-};
 
 class Usb {
  public:
@@ -71,33 +63,30 @@ class Uart {
   Queue rx_buf_;
 };
 
+/* LedController lives in controllers/led_controller.hpp, PeripheralsController
+ * in controllers/peripherals_controller.hpp, DcpHandler in
+ * dcp/dcp_handler.hpp (DcpSender is DcpHandler's own implementation detail,
+ * not referenced here) -- Device only needs a reference to each, so a
+ * forward declaration is enough and keeps this header free of a dependency
+ * cycle (peripherals_controller.hpp depends on the Usb/Uart/UartConfig
+ * types declared above). */
+class LedController;
+class DcpHandler;
+class PeripheralsController;
+
 class Device {
  public:
-  explicit Device(LedController &lc, Usb &usb, Uart &uart)
-      : leds_(lc), usb_(usb), uart_(uart) {}
+  explicit Device(LedController &lc, DcpHandler &dcp, PeripheralsController &peripherals)
+      : leds_(lc), dcp_(dcp), peripherals_(peripherals) {}
 
   void Init(void);
   void Run(void);
   static void DelayMs(const uint32_t ms);
 
  private:
-  void HandleFrame(const DcpFrame &frame);
-  void HandleRun(const DcpFrame &frame);
-  void HandleGetCfg(const DcpFrame &frame);
-  void HandleSetCfg(const DcpFrame &frame);
-  void HandleReset(const DcpFrame &frame);
-
-  void SendErr(DcpInterface iface, uint8_t txn_id, DcpError err);
-  void SendUartCfg(uint8_t txn_id);
-  void SendSystemCfg(uint8_t txn_id);
-  void ApplyUartCfg(const uint8_t *payload, uint16_t len);
-
   LedController &leds_;
-  Usb &usb_;
-  Uart &uart_;
-
-  DcpParser dcp_rx_;
-  UartConfig uart_cfg_;
+  DcpHandler &dcp_;
+  PeripheralsController &peripherals_;
 };
 
 #ifdef __cplusplus

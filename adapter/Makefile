@@ -51,12 +51,23 @@ DEVICE_DIR := $(firstword $(DEVICE_DIR_CANDIDATES))
 
 # ---- Includes ----
 INCS := -Icore/inc \
-        -Icore/inc/common
+        -Icore/inc/common \
+        -Imodules
 
 # ---- Sources ----
 SRCS := core/src/main.cpp \
         core/src/common/queue.cpp \
-        core/src/common/dcp.cpp
+        core/src/dcp/dcp_sender.cpp \
+        core/src/dcp/dcp_handler.cpp \
+        core/src/controllers/led_controller.cpp \
+        core/src/controllers/peripherals_controller.cpp \
+        modules/dcp/core/frame_parser.cpp \
+        modules/dcp/core/frame_encoder.cpp \
+        modules/dcp/system/codec.cpp \
+        modules/dcp/uart/codec.cpp \
+        modules/dcp/internal/byte_reader.cpp \
+        modules/dcp/internal/byte_writer.cpp \
+        modules/dcp/internal/crc16.cpp
 
 # ---- Configure params based on choosen device ----
 ifeq ($(DEVICE),stm32f303vct6)

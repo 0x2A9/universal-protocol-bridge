@@ -1,27 +1,11 @@
 #include <stdio.h>
 #include "board.h"
 #include "device.hpp"
+#include "controllers/led_controller.hpp"
+#include "controllers/peripherals_controller.hpp"
+#include "dcp/dcp_handler.hpp"
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
-
-static uint8_t dcp_tx[kDcpMaxFrameSize];
-
-static constexpr uint8_t kFwVersionMajor = 1;
-static constexpr uint8_t kFwVersionMinor = 0;
-static constexpr uint8_t kFwVersionPatch = 0;
-static constexpr uint8_t kSupportedInterfaceMask = 0x01; /* bit0 = UART */
-
-void LedController::ToggleInfo(void) {
-  HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_8);
-}
-
-void LedController::SetWarn(void) {
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
-}
-
-void LedController::ResetWarn(void) {
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
-}
 
 Usb::Usb(void) {
   if (instance_ != nullptr) Error_Handler();
@@ -45,7 +29,7 @@ bool Usb::IsReady(void) const {
 bool Usb::EnqueueTx(const uint8_t *src, const uint16_t len) {
   if (tx_buf_.Free() < len) return false;
   tx_buf_.Push(src, len);
-  
+
   return true;
 }
 
@@ -171,194 +155,29 @@ void Uart::ClearNewRxDataFlag(void) {
   is_new_rx_data_ = false;
 }
 
+/* ------------------------------------------------------------------- */
+/* Device                                                               */
+/* ------------------------------------------------------------------- */
+
 void Device::Init(void) {
   HAL_Init();
   SystemClock_Config();
   MX_GPIO_Init();
 
-  usb_.Init();
-  uart_.Init();
-}
-
-void Device::SendErr(DcpInterface iface, uint8_t txn_id, DcpError err) {
-  uint8_t code = static_cast<uint8_t>(err);
-  uint16_t n = DcpEncode(dcp_tx, DcpCmd::kErr, iface, txn_id, &code, 1);
-  
-  usb_.EnqueueTx(dcp_tx, n);
-}
-
-void Device::SendUartCfg(uint8_t txn_id) {
-  uint8_t payload[7];
-  payload[0] = uint8_t(uart_cfg_.baud >> 24);
-  payload[1] = uint8_t(uart_cfg_.baud >> 16);
-  payload[2] = uint8_t(uart_cfg_.baud >> 8);
-  payload[3] = uint8_t(uart_cfg_.baud);
-  payload[4] = uart_cfg_.data_bits;
-  payload[5] = uart_cfg_.stop_bits;
-  payload[6] = uart_cfg_.parity;
-
-  uint16_t n = DcpEncode(dcp_tx, DcpCmd::kCfg, DcpInterface::kUart, txn_id,
-                          payload, sizeof(payload));
-  usb_.EnqueueTx(dcp_tx, n);
-}
-
-void Device::SendSystemCfg(uint8_t txn_id) {
-  uint8_t payload[4] = {kFwVersionMajor, kFwVersionMinor, kFwVersionPatch,
-                         kSupportedInterfaceMask};
-
-  uint16_t n = DcpEncode(dcp_tx, DcpCmd::kCfg, DcpInterface::kSystem, txn_id,
-                          payload, sizeof(payload));
-  usb_.EnqueueTx(dcp_tx, n);
-}
-
-void Device::ApplyUartCfg(const uint8_t *payload, uint16_t len) {
-  if (len < 7) return;
-
-  uart_cfg_.baud = (uint32_t(payload[0]) << 24) | (uint32_t(payload[1]) << 16) |
-                   (uint32_t(payload[2]) << 8) | uint32_t(payload[3]);
-  uart_cfg_.data_bits = payload[4];
-  uart_cfg_.stop_bits = payload[5];
-  uart_cfg_.parity = payload[6];
-
-  uart_.Reconfigure(uart_cfg_);
-}
-
-void Device::HandleRun(const DcpFrame &frame) {
-  if (frame.interface == DcpInterface::kUart) {
-    uart_.Transmit(const_cast<uint8_t *>(frame.payload), frame.len);
-
-    uint16_t n = DcpEncode(dcp_tx, DcpCmd::kAck, DcpInterface::kUart,
-                            frame.txn_id, nullptr, 0);
-    usb_.EnqueueTx(dcp_tx, n);
-
-    return;
-  }
-
-  SendErr(frame.interface, frame.txn_id, DcpError::kUnsupportedInterface);
-}
-
-void Device::HandleGetCfg(const DcpFrame &frame) {
-  switch (frame.interface) {
-    case DcpInterface::kUart:   SendUartCfg(frame.txn_id); break;
-    case DcpInterface::kSystem: SendSystemCfg(frame.txn_id); break;
-    default:
-      SendErr(frame.interface, frame.txn_id, DcpError::kUnsupportedInterface);
-
-      break;
-  }
-}
-
-void Device::HandleSetCfg(const DcpFrame &frame) {
-  switch (frame.interface) {
-    case DcpInterface::kUart:
-      ApplyUartCfg(frame.payload, frame.len);
-      SendUartCfg(frame.txn_id);
-
-      break;
-
-    default:
-      SendErr(frame.interface, frame.txn_id, DcpError::kUnsupportedInterface);
-
-      break;
-  }
-}
-
-void Device::HandleReset(const DcpFrame &frame) {
-  switch (frame.interface) {
-    case DcpInterface::kUart:
-      uart_.Reconfigure(uart_cfg_);
-
-      break;
-
-    case DcpInterface::kSystem: {
-      uint16_t n = DcpEncode(dcp_tx, DcpCmd::kAck, DcpInterface::kSystem,
-                              frame.txn_id, nullptr, 0);
-      usb_.EnqueueTx(dcp_tx, n);
-      usb_.ProcessTx();
-      NVIC_SystemReset();
-
-      return;
-    }
-
-    default:
-      SendErr(frame.interface, frame.txn_id, DcpError::kUnsupportedInterface);
-
-      return;
-  }
-
-  uint16_t n = DcpEncode(dcp_tx, DcpCmd::kAck, frame.interface, frame.txn_id,
-                          nullptr, 0);
-  usb_.EnqueueTx(dcp_tx, n);
-}
-
-void Device::HandleFrame(const DcpFrame &frame) {
-  switch (frame.cmd) {
-    case DcpCmd::kRun:    HandleRun(frame); break;
-    case DcpCmd::kGetCfg: HandleGetCfg(frame); break;
-    case DcpCmd::kSetCfg: HandleSetCfg(frame); break;
-    case DcpCmd::kReset:  HandleReset(frame); break;
-    default:
-      SendErr(frame.interface, frame.txn_id, DcpError::kMalformedFrame);
-
-      break;
-  }
+  dcp_.Init();
+  peripherals_.Init();
 }
 
 void Device::Run(void) {
-  if (!usb_.IsReady()) return;
+  if (!dcp_.IsReady()) return;
 
   leds_.ResetWarn();
   leds_.ToggleInfo();
 
-  uint8_t chunk[64];
-  uint16_t n = usb_.DequeueRx(chunk, sizeof(chunk));
+  DcpHandler::ProcessResult result = dcp_.Process();
+  if (result.uart_rx_processed) leds_.SetWarn();
 
-  if (n > 0) {
-    dcp_rx_.Feed(chunk, n);
-  }
-
-  DcpFrame frame;
-  DcpError err;
-  DcpPopResult r;
-
-  while ((r = dcp_rx_.PopFrame(frame, err)) != DcpPopResult::kNone) {
-    if (r == DcpPopResult::kProtocolError) {
-      SendErr(frame.interface, frame.txn_id, err);
-
-      continue;
-    }
-
-    HandleFrame(frame);
-  }
-
-  if (uart_.IsNewRxData()) {
-    leds_.SetWarn();
-    uint8_t rxbuf[64];
-    uint16_t rn = uart_.DequeueRx(rxbuf, sizeof(rxbuf));
-    if (rn > 0) {
-      uint16_t fn = DcpEncode(dcp_tx, DcpCmd::kData, DcpInterface::kUart, 0,
-                               rxbuf, rn);
-
-      usb_.EnqueueTx(dcp_tx, fn);
-    }
-
-    uart_.ClearNewRxDataFlag();
-  }
-
-  usb_.ProcessTx();
-
-  static uint32_t last_heartbeat = 0;
-  uint32_t t = HAL_GetTick();
-  if (t - last_heartbeat >= 1000) {
-    last_heartbeat = t;
-    
-    uint16_t hn = DcpEncode(dcp_tx, DcpCmd::kHeartbeat, DcpInterface::kSystem,
-                             0, nullptr, 0);
-
-    usb_.EnqueueTx(dcp_tx, hn);
-  }
-
-  usb_.ProcessTx();
+  dcp_.Tick(HAL_GetTick());
 }
 
 void Device::DelayMs(const uint32_t ms) {
